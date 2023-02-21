@@ -131,10 +131,6 @@ class RadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 val metadata = call.arguments<ArrayList<String>>()!!
                 service.setMetadata(metadata)
             }
-            "itunes_artwork_parser" -> {
-                val enable = call.arguments<Boolean>()!!
-                service.itunesArtworkParser = enable
-            }
             "ignore_icy" -> {
                 service.ignoreIcy = true
             }

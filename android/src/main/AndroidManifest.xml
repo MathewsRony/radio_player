@@ -4,7 +4,7 @@
     <!--  Permissions for the plugin  -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.INTERNET" />
-
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!--  Services for the plugin  -->
     <application android:usesCleartextTraffic="true">
         <service android:name=".RadioPlayerService"/>

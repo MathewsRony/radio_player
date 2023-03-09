@@ -151,6 +151,22 @@ class RadioPlayerService : Service(), Player.Listener {
 
     /** Creates a notification manager for background playback. */
     private fun createNotificationManager() {
+        // Setup media session
+        val intent = Intent(Intent.ACTION_MEDIA_BUTTON)
+        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        mediaSession = MediaSessionCompat(context, "RadioPlayerService", null, pendingIntent)
+        mediaSession?.let {
+            it.isActive = true
+            val mediaSessionConnector = MediaSessionConnector(it)
+            mediaSessionConnector.setPlayer(player)
+        }
+        // Setup audio focus
+        val audioAttributes: AudioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.CONTENT_TYPE_MUSIC)
+            .build()
+        player.setAudioAttributes(audioAttributes, true);
+        // Setup notification manager
         val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
             override fun createCurrentContentIntent(player: Player): PendingIntent? {
                 return null
@@ -189,7 +205,7 @@ class RadioPlayerService : Service(), Player.Listener {
             .setMediaDescriptionAdapter(mediaDescriptionAdapter)
             .setNotificationListener(notificationListener)
             .build().apply {
-                setUsePlayPauseActions(false)
+                setUsePlayPauseActions(true)
                 setUseStopAction(true)
                 setUseFastForwardAction(false)
                 setUseFastForwardActionInCompactView(false)

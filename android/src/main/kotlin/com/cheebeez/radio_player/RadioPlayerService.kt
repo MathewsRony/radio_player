@@ -32,8 +32,6 @@ import android.util.Log
 import java.net.URLEncoder
 import org.json.JSONObject
 import android.content.Context
-import com.google.android.exoplayer2.audio.AudioAttributes
-import com.google.android.exoplayer2.C
 
 /** Service for plays streaming audio content using ExoPlayer. */
 class RadioPlayerService : Service(), Player.Listener {
@@ -163,12 +161,6 @@ class RadioPlayerService : Service(), Player.Listener {
         // Setup media session
         val intent = Intent(Intent.ACTION_MEDIA_BUTTON)
         val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-        // Setup audio focus
-        val audioAttributes: AudioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.CONTENT_TYPE_MUSIC)
-            .build()
-        player.setAudioAttributes(audioAttributes, true);
         // Setup notification manager
         val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
             override fun createCurrentContentIntent(player: Player): PendingIntent? {

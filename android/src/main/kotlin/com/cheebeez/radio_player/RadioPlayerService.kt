@@ -31,11 +31,9 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.util.Log
 import java.net.URLEncoder
 import org.json.JSONObject
-import android.support.v4.media.session.MediaSessionCompat
 import android.content.Context
 import com.google.android.exoplayer2.audio.AudioAttributes
 import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 
 /** Service for plays streaming audio content using ExoPlayer. */
 class RadioPlayerService : Service(), Player.Listener {
@@ -60,7 +58,6 @@ class RadioPlayerService : Service(), Player.Listener {
 
     lateinit var context: Context
     private lateinit var mediaItems: List<MediaItem>
-    private var mediaSession: MediaSessionCompat? = null
 
     private val player: ExoPlayer by lazy {
         ExoPlayer.Builder(this).build()
@@ -166,12 +163,6 @@ class RadioPlayerService : Service(), Player.Listener {
         // Setup media session
         val intent = Intent(Intent.ACTION_MEDIA_BUTTON)
         val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-        mediaSession = MediaSessionCompat(context, "RadioPlayerService", null, pendingIntent)
-        mediaSession?.let {
-            it.isActive = true
-            val mediaSessionConnector = MediaSessionConnector(it)
-            mediaSessionConnector.setPlayer(player)
-        }
         // Setup audio focus
         val audioAttributes: AudioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)

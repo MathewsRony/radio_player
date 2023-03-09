@@ -11,11 +11,10 @@ import java.net.URL
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.app.PendingIntent
-import com.google.android.exoplayer2.SimpleExoPlayer
+import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.metadata.Metadata
-import com.google.android.exoplayer2.metadata.MetadataOutput
 import com.google.android.exoplayer2.metadata.icy.IcyInfo
 import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.google.android.exoplayer2.ui.PlayerNotificationManager.BitmapCallback
@@ -31,36 +30,30 @@ import android.app.Notification
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 
 /** Service for plays streaming audio content using ExoPlayer. */
-class RadioPlayerService : Service(), Player.EventListener, MetadataOutput {
+class RadioPlayerService : Service(), Player.Listener {
 
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "radio_channel_id"
         const val NOTIFICATION_ID = 1
-        const val STREAM_TITLE = "stream_title"
-        const val STREAM_URL = "stream_url"
         const val ACTION_STATE_CHANGED = "state_changed"
         const val ACTION_STATE_CHANGED_EXTRA = "state"
         const val ACTION_NEW_METADATA = "matadata_changed"
         const val ACTION_NEW_METADATA_EXTRA = "matadata"
     }
 
-    private lateinit var playerNotificationManager: PlayerNotificationManager
+    var metadataArtwork: Bitmap? = null
+    var ignoreIcy: Boolean = false
+    private var defaultArtwork: Bitmap? = null
+    private var playerNotificationManager: PlayerNotificationManager? = null
+    private var notificationTitle = ""
     private var isForegroundService = false
-    private var metadataList: MutableList<String>? = null
+    private var currentMetadata: ArrayList<String>? = null
     private var localBinder = LocalBinder()
-    private val player: SimpleExoPlayer by lazy {
-        SimpleExoPlayer.Builder(this).build()
+    private val player: ExoPlayer by lazy {
+        ExoPlayer.Builder(this).build()
     }
     private val localBroadcastManager: LocalBroadcastManager by lazy {
         LocalBroadcastManager.getInstance(this)
-    }
-
-    fun play() {
-        player.playWhenReady = true
-    }
-
-    fun pause() {
-        player.playWhenReady = false
     }
 
     inner class LocalBinder : Binder() {
@@ -73,38 +66,79 @@ class RadioPlayerService : Service(), Player.EventListener, MetadataOutput {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val streamUrl = intent?.getStringExtra(STREAM_URL)!!
-        val streamTitle = intent?.getStringExtra(STREAM_TITLE)!!
-
-        setUrls(runBlocking { GlobalScope.async { parseUrls(streamUrl) }.await() })
         player.setRepeatMode(Player.REPEAT_MODE_ONE)
-        createNotificationManager(streamTitle)
         player.addListener(this)
-        player.addMetadataOutput(this)
 
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        playerNotificationManager.setPlayer(null)
-        player.release()
         super.onDestroy()
+        playerNotificationManager?.setPlayer(null)
+        player.release()
+        android.os.Process.killProcess(android.os.Process.myPid());
     }
 
-    /** Extract stream URLs from user link. */
+    fun setMediaItem(streamTitle: String, streamUrl: String) {
+        val mediaItems: List<MediaItem> = runBlocking {
+                GlobalScope.async {
+                    parseUrls(streamUrl).map { MediaItem.fromUri(it) }
+                }.await()
+            }
+
+        currentMetadata = null
+        defaultArtwork = null
+        metadataArtwork = null
+        notificationTitle = streamTitle
+        playerNotificationManager?.invalidate() ?: createNotificationManager()
+
+        player.stop()
+        player.clearMediaItems()
+        player.seekTo(0)
+        player.addMediaItems(mediaItems)
+    }
+
+    fun setMetadata(metadata: ArrayList<String>) {
+        currentMetadata = metadata
+        playerNotificationManager?.invalidate()
+
+        val metadataIntent = Intent(ACTION_NEW_METADATA)
+        metadataIntent.putStringArrayListExtra(ACTION_NEW_METADATA_EXTRA, metadata)
+        localBroadcastManager.sendBroadcast(metadataIntent)
+    }
+
+    fun setDefaultArtwork(image: Bitmap) {
+        defaultArtwork = image
+        playerNotificationManager?.invalidate()
+    }
+
+    fun play() {
+        player.playWhenReady = true
+    }
+
+    fun stop() {
+        player.playWhenReady = false
+        player.stop()
+    }
+
+    fun pause() {
+        player.playWhenReady = false
+    }
+
+    /** Extract URLs from user link. */
     private fun parseUrls(url: String): List<String> {
         var urls: List<String> = emptyList()
 
         when (url.substringAfterLast(".")) {
             "pls" -> {
-                urls = URL(url).readText().lines().filter {
+                 urls = URL(url).readText().lines().filter {
                     it.contains("=http") }.map {
-                    it.substringAfter("=")
-                }
+                        it.substringAfter("=")
+                    }
             }
             "m3u" -> {
                 val content = URL(url).readText().trim()
-                urls = listOf<String>(content)
+                 urls = listOf<String>(content)
             }
             else -> {
                 urls = listOf<String>(url)
@@ -114,32 +148,22 @@ class RadioPlayerService : Service(), Player.EventListener, MetadataOutput {
         return urls
     }
 
-    /** Add URLs to exoplayer playlist. */
-    private fun setUrls(urls: List<String>) {
-        for (url in urls) {
-            val mediaItem = MediaItem.fromUri(url)
-            player.addMediaItem(mediaItem)
-        }
-    }
-
     /** Creates a notification manager for background playback. */
-    private fun createNotificationManager(streamTitle: String) {
+    private fun createNotificationManager() {
         val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
             override fun createCurrentContentIntent(player: Player): PendingIntent? {
                 return null
             }
             override fun getCurrentLargeIcon(player: Player, callback: BitmapCallback): Bitmap? {
-                val resID = getResources().getIdentifier("ic_launcher", "mipmap", packageName)
-                val bitmap = BitmapFactory.decodeResource(resources, resID)
-                //callback?.onBitmap(bitmap)
-                //return bitmap
-                return null
+                metadataArtwork = downloadImage(currentMetadata?.get(2))
+                if (metadataArtwork != null) callback?.onBitmap(metadataArtwork!!)
+                return defaultArtwork
             }
             override fun getCurrentContentTitle(player: Player): String {
-                return metadataList?.get(0) ?: streamTitle
+                return currentMetadata?.get(0) ?: notificationTitle
             }
             override fun getCurrentContentText(player: Player): String? {
-                return metadataList?.get(1) ?: null
+                return currentMetadata?.get(1) ?: null
             }
         }
 
@@ -150,28 +174,36 @@ class RadioPlayerService : Service(), Player.EventListener, MetadataOutput {
                     isForegroundService = true
                 }
             }
-            override fun onNotificationCancelled(notificationId: Int) {
+            override fun onNotificationCancelled(notificationId: Int, dismissedByUser: Boolean) {
                 stopForeground(true)
                 isForegroundService = false
                 stopSelf()
             }
         }
 
-        playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(
-            this, NOTIFICATION_CHANNEL_ID, R.string.channel_name, NOTIFICATION_ID,
-            mediaDescriptionAdapter, notificationListener
-        ).apply {
-            setUsePlayPauseActions(true)
-            setUseNavigationActionsInCompactView(true)
-            setUseNavigationActions(false)
-            setRewindIncrementMs(0)
-            setFastForwardIncrementMs(0)
-            setPlayer(player)
-        }
+        playerNotificationManager = PlayerNotificationManager.Builder(
+            this, NOTIFICATION_ID, NOTIFICATION_CHANNEL_ID)
+            .setChannelNameResourceId(R.string.channel_name)
+            //.setChannelDescriptionResourceId(R.string.notification_Channel_Description)
+            .setMediaDescriptionAdapter(mediaDescriptionAdapter)
+            .setNotificationListener(notificationListener)
+            .build().apply {
+                setUsePlayPauseActions(false)
+                setUseStopAction(true)
+                setUseFastForwardAction(false)
+                setUseFastForwardActionInCompactView(false)
+                setUseRewindAction(false)
+                setUseRewindActionInCompactView(false)
+                setUsePreviousActionInCompactView(false)
+                setUseNextActionInCompactView(false)
+                setUsePreviousAction(false)
+                setUseNextAction(false)
+                setPlayer(player)
+            }
     }
 
-    override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
-        if (playbackState == Player.STATE_IDLE) {
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, playbackState: Int) {
+        if (playbackState == Player.STATE_IDLE && playWhenReady == true) {
             player.prepare()
         }
 
@@ -181,16 +213,36 @@ class RadioPlayerService : Service(), Player.EventListener, MetadataOutput {
         localBroadcastManager.sendBroadcast(stateIntent)
     }
 
-    override fun onMetadata(metadata: Metadata) {
-        val icyInfo: IcyInfo = metadata[0] as IcyInfo
+    override fun onMetadata(md: Metadata) {
+        if (ignoreIcy) return
+
+        val icyInfo: IcyInfo = md[0] as IcyInfo
         val title: String = icyInfo.title ?: return
+        if (title.length == 0) return
+        val cover: String = icyInfo.url ?: ""
 
-        metadataList = title.split(" - ").toMutableList()
-        metadataList!!.add("")
-        playerNotificationManager.invalidate()
+        var metadata: MutableList<String> = title.split(" - ").toMutableList()
+        if (metadata.lastIndex == 0) metadata.add("")
+        metadata.add(cover)
 
-        val metadataIntent = Intent(ACTION_NEW_METADATA)
-        metadataIntent.putStringArrayListExtra(ACTION_NEW_METADATA_EXTRA, metadataList!! as ArrayList<String>)
-        localBroadcastManager.sendBroadcast(metadataIntent)
+        setMetadata(ArrayList(metadata))
+    }
+
+    fun downloadImage(value: String?): Bitmap? {
+        if (value == null) return null
+        var bitmap: Bitmap? = null
+
+        try {
+            val url: URL = URL(value)
+            bitmap = runBlocking {
+                GlobalScope.async {
+                    BitmapFactory.decodeStream(url.openStream())
+                }.await()
+            }
+        } catch (e: Throwable) {
+            println(e)
+        }
+
+        return bitmap
     }
 }

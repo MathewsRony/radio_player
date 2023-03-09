@@ -54,7 +54,7 @@ class RadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
-        val args = call.arguments<ArrayList<*>>()
+        val args = call.arguments<ArrayList<*>>()!!
 
         when (call.method) {
             "init" -> {

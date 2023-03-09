@@ -149,38 +149,16 @@ class RadioPlayerService : Service(), Player.Listener {
         return urls
     }
 
-
     /** Creates a notification manager for background playback. */
     private fun createNotificationManager() {
-        // Setup media session
-        val intent = Intent(Intent.ACTION_MEDIA_BUTTON)
-        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-        mediaSession = MediaSessionCompat(context, "RadioPlayerService", null, pendingIntent)
-
-        mediaSession?.let {
-            it.isActive = true
-            val mediaSessionConnector = MediaSessionConnector(it)
-            mediaSessionConnector.setPlayer(player)
-        }
-
-        // Setup audio focus
-        val audioAttributes: AudioAttributes = AudioAttributes.Builder()
-            .setUsage(C.USAGE_MEDIA)
-            .setContentType(C.CONTENT_TYPE_MUSIC)
-            .build()
-
-        player.setAudioAttributes(audioAttributes, true);
-
-        // Setup notification manager
         val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
             override fun createCurrentContentIntent(player: Player): PendingIntent? {
-                val notificationIntent = Intent()
-                notificationIntent.setClassName(context.packageName, "${context.packageName}.MainActivity")
-                return PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                return null
             }
             override fun getCurrentLargeIcon(player: Player, callback: BitmapCallback): Bitmap? {
                 metadataArtwork = downloadImage(currentMetadata?.get(2))
-                return metadataArtwork ?: defaultArtwork;
+                if (metadataArtwork != null) callback?.onBitmap(metadataArtwork!!)
+                return defaultArtwork
             }
             override fun getCurrentContentTitle(player: Player): String {
                 return currentMetadata?.get(0) ?: notificationTitle
@@ -211,19 +189,18 @@ class RadioPlayerService : Service(), Player.Listener {
             .setMediaDescriptionAdapter(mediaDescriptionAdapter)
             .setNotificationListener(notificationListener)
             .build().apply {
-                setUsePlayPauseActions(true)
+                setUsePlayPauseActions(false)
+                setUseStopAction(true)
                 setUseFastForwardAction(false)
+                setUseFastForwardActionInCompactView(false)
                 setUseRewindAction(false)
+                setUseRewindActionInCompactView(false)
+                setUsePreviousActionInCompactView(false)
+                setUseNextActionInCompactView(false)
                 setUsePreviousAction(false)
                 setUseNextAction(false)
                 setPlayer(player)
-                mediaSession?.let { setMediaSessionToken(it.sessionToken) }
             }
-    }
-
-    override fun onPlaybackStateChanged(state: Int) {
-        super.onPlaybackStateChanged(state)
-        playbackState = state
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, playbackState: Int) {

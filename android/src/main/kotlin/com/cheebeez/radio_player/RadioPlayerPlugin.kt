@@ -32,6 +32,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.IBinder
 import com.google.android.exoplayer2.util.Util
+import io.flutter.Log
+
 
 /** RadioPlayerPlugin */
 class RadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
@@ -113,7 +115,7 @@ class RadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
-        android.util.Log.e(TAG, "onMethodCall: call.method", call.method);
+        Log.e( "onMethodCall: call.method", call.method);
         when (call.method) {
             "set" -> {
                 val args = call.arguments<ArrayList<String>>()!!

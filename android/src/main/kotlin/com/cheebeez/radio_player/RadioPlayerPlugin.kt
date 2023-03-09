@@ -113,7 +113,7 @@ class RadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
-        Log.d("TAG", "your log message")
+        println("other message")
         when (call.method) {
             "set" -> {
                 val args = call.arguments<ArrayList<String>>()!!

@@ -57,6 +57,11 @@ class RadioPlayerService : Service(), Player.Listener {
     private var isForegroundService = false
     private var currentMetadata: ArrayList<String>? = null
     private var localBinder = LocalBinder()
+
+    lateinit var context: Context
+    private lateinit var mediaItems: List<MediaItem>
+    private var mediaSession: MediaSessionCompat? = null
+
     private val player: ExoPlayer by lazy {
         ExoPlayer.Builder(this).build()
     }

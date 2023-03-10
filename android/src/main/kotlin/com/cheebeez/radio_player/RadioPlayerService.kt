@@ -29,6 +29,7 @@ import android.os.Binder
 import android.app.Notification
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.util.Log
+import android.content.Context
 
 /** Service for plays streaming audio content using ExoPlayer. */
 class RadioPlayerService : Service(), Player.Listener {
@@ -50,6 +51,7 @@ class RadioPlayerService : Service(), Player.Listener {
     private var isForegroundService = false
     private var currentMetadata: ArrayList<String>? = null
     private var localBinder = LocalBinder()
+    lateinit var context: Context
     private val player: ExoPlayer by lazy {
         ExoPlayer.Builder(this).build()
     }

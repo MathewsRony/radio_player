@@ -14,9 +14,9 @@ class RadioPlayer {
   static const _stateEvents = EventChannel('radio_player/stateEvents');
 
   static const _defaultArtworkChannel =
-      BasicMessageChannel("radio_player/setArtwork", BinaryCodec());
+  BasicMessageChannel("radio_player/setArtwork", BinaryCodec());
   static const _metadataArtworkChannel =
-      BasicMessageChannel("radio_player/getArtwork", BinaryCodec());
+  BasicMessageChannel("radio_player/getArtwork", BinaryCodec());
 
   Stream<bool>? _stateStream;
   Stream<List<String>>? _metadataStream;
@@ -53,6 +53,11 @@ class RadioPlayer {
     await _methodChannel.invokeMethod('ignore_icy');
   }
 
+  /// Parse album covers from iTunes.
+  Future<void> itunesArtworkParser(bool enable) async {
+    await _methodChannel.invokeMethod('itunes_artwork_parser', enable);
+  }
+
   /// Set custom metadata.
   Future<void> setCustomMetadata(List<String> metadata) async {
     await _methodChannel.invokeMethod('metadata', metadata);
@@ -82,8 +87,8 @@ class RadioPlayer {
   Stream<List<String>> get metadataStream {
     _metadataStream ??=
         _metadataEvents.receiveBroadcastStream().map((metadata) {
-      return metadata.map<String>((value) => value as String).toList();
-    });
+          return metadata.map<String>((value) => value as String).toList();
+        });
 
     return _metadataStream!;
   }

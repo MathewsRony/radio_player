@@ -29,7 +29,6 @@ import android.os.Binder
 import android.app.Notification
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import android.util.Log
-import android.content.Context
 
 /** Service for plays streaming audio content using ExoPlayer. */
 class RadioPlayerService : Service(), Player.Listener {
@@ -51,7 +50,6 @@ class RadioPlayerService : Service(), Player.Listener {
     private var isForegroundService = false
     private var currentMetadata: ArrayList<String>? = null
     private var localBinder = LocalBinder()
-    lateinit var context: Context
     private val player: ExoPlayer by lazy {
         ExoPlayer.Builder(this).build()
     }
@@ -153,13 +151,9 @@ class RadioPlayerService : Service(), Player.Listener {
 
     /** Creates a notification manager for background playback. */
     private fun createNotificationManager() {
-        val intent = Intent(Intent.ACTION_MEDIA_BUTTON)
-        val pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
         val mediaDescriptionAdapter = object : MediaDescriptionAdapter {
             override fun createCurrentContentIntent(player: Player): PendingIntent? {
-                val notificationIntent = Intent()
-                notificationIntent.setClassName(context.packageName, "${context.packageName}.MainActivity")
-                return PendingIntent.getActivity(context, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                return null
             }
             override fun getCurrentLargeIcon(player: Player, callback: BitmapCallback): Bitmap? {
                 metadataArtwork = downloadImage(currentMetadata?.get(2))
